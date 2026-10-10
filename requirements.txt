@@ -1,0 +1,13 @@
+streamlit
+python-dotenv
+openai
+langchain
+langchain-community
+langchain-pinecone
+pinecone-client
+sentence-transformers
+langchain-huggingface
+pypdf
+python-docx
+faiss-cpu
+fpdf

@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from typing import List, Dict, Any
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "decisionguard.db")
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "decisionguard.db"))
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)

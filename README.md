@@ -64,6 +64,49 @@ python -m streamlit run src/app/streamlit_app.py
 ```
 *The application will automatically open in your default browser at `http://localhost:8501`.*
 
+## ☁️ Deployment on Streamlit Community Cloud
+
+DecisionGuard AI is pre-configured for seamless deployment on [Streamlit Community Cloud](https://streamlit.io/cloud).
+
+### Step-by-Step Deployment Guide
+
+1. **Push your code to GitHub:**
+   Ensure your latest code is pushed to your GitHub repository (e.g., `main` branch).
+   *(Note: `.env`, `decisionguard.db`, and `.streamlit/secrets.toml` are gitignored and will not be pushed to GitHub.)*
+
+2. **Create New App on Streamlit Cloud:**
+   - Log in to [share.streamlit.io](https://share.streamlit.io).
+   - Click **"New app"**.
+   - Select your repository: `Atharva-kharche/DecisionGuard-AI`.
+   - Select the branch: `main`.
+   - Set the **Main file path** to:
+     ```text
+     src/app/streamlit_app.py
+     ```
+     *(Important: Do not leave as default `streamlit_app.py`; the entry point is located inside `src/app/`)*.
+
+3. **Configure Secrets:**
+   - Click **"Advanced settings..."** before deploying (or navigate to **Settings → Secrets** from the app dashboard).
+   - Enter your Nebius Token Factory API key in TOML format:
+     ```toml
+     NEBIUS_API_KEY = "your_actual_nebius_api_key_here"
+     ```
+   - *(Optional)* If using external vector search with Pinecone, you can also define:
+     ```toml
+     PINECONE_API_KEY = "your_pinecone_api_key_here"
+     PINECONE_INDEX_NAME = "decisionguard"
+     ```
+
+4. **Deploy:**
+   - Click **"Deploy!"**.
+   - Streamlit Community Cloud will automatically install dependencies from `requirements.txt` and launch the app.
+
+### ⚠️ Cloud Storage & Ephemeral Lifecycle Notice
+
+- **Ephemeral Filesystem:** Streamlit Community Cloud runs in containerized environments with an ephemeral disk. The local SQLite database (`decisionguard.db`) and uploaded document sessions exist for the container's active lifecycle and will reset when the app restarts, goes to sleep, or is redeployed.
+- **In-Memory Document Handling:** Uploaded evidence files (PDF, DOCX, TXT, MD) and exported PDF reports are processed directly in-memory via byte streams and are never stored on disk, ensuring maximum security and zero local footprint.
+- **Persistent Production Storage:** For multi-user or permanent review history across cloud restarts, an external managed database (e.g., Supabase, PostgreSQL) and external vector store (Pinecone) should be connected.
+
 ## 🧪 Running Tests
 
 A comprehensive test suite is included to validate RAG ingestion, deterministic scoring, and LLM output parsing.

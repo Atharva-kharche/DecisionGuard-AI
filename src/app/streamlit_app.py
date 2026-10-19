@@ -9,9 +9,12 @@ import os
 import time
 import uuid
 
-_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+_SRC_DIR = os.path.abspath(os.path.join(_CURRENT_DIR, ".."))
+_ROOT_DIR = os.path.abspath(os.path.join(_SRC_DIR, ".."))
+for _p in (_SRC_DIR, _ROOT_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import streamlit as st
 import json

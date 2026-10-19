@@ -35,7 +35,7 @@ class NebiusClient:
         if not Config.is_nebius_configured():
             raise ValueError(
                 "NEBIUS_API_KEY is not set. "
-                "Please add it to your .env file. "
+                "Please add it to your .env file or Streamlit Cloud Secrets. "
                 "See .env.example for reference."
             )
 
@@ -131,8 +131,11 @@ class NebiusClient:
                                 pass
                             
                     # If all else fails
-                    with open("failed_output.txt", "w", encoding="utf-8") as f:
-                        f.write(content)
+                    try:
+                        with open("failed_output.txt", "w", encoding="utf-8") as f:
+                            f.write(content)
+                    except Exception:
+                        pass
                     raise ValueError(f"Failed to parse JSON response: {content[:200]}...")
             
             return content

@@ -10,4 +10,4 @@ langchain-huggingface
 pypdf
 python-docx
 faiss-cpu
-fpdf
+fpdf2

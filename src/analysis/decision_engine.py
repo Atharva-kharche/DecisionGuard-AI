@@ -89,14 +89,21 @@ class DecisionEngine:
         # Call the LLM enforcing JSON mode
         try:
             result = self.client.chat(messages, max_tokens=8192, json_mode=True)
+            if not isinstance(result, dict):
+                raise ValueError(f"Model returned unexpected response type: {type(result).__name__}")
             
             # Ensure findings have IDs if LLM missed it
-            if "findings" not in result:
-                result["findings"] = []
+            raw_findings = result.get("findings", [])
+            if not isinstance(raw_findings, list):
+                raw_findings = []
                 
-            for f in result["findings"]:
-                if "id" not in f or not f["id"]:
-                    f["id"] = str(uuid.uuid4())
+            valid_findings = []
+            for f in raw_findings:
+                if isinstance(f, dict):
+                    if "id" not in f or not f["id"]:
+                        f["id"] = str(uuid.uuid4())
+                    valid_findings.append(f)
+            result["findings"] = valid_findings
             
             # Phase 6: Deterministic risk scoring
             # Critical=25, High=15, Medium=5, Low=1

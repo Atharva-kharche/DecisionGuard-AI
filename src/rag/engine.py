@@ -14,11 +14,12 @@ from rag.vector_store import DocumentStore
 class RAGEngine:
     """Retrieval-Augmented Generation engine for document analysis."""
 
-    def __init__(self) -> None:
+    def __init__(self, embeddings: Any = None) -> None:
+        self.embeddings = embeddings
         self.clear()
 
     def clear(self) -> None:
-        self.store = DocumentStore()
+        self.store = DocumentStore(embeddings=self.embeddings)
         self._document_names = set()
         self._chunk_count = 0
         self._all_chunks = []

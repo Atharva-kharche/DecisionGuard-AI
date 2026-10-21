@@ -15,9 +15,12 @@ from utils.config import Config
 class DocumentStore:
     """Manages the underlying vector store and embeddings."""
 
-    def __init__(self) -> None:
+    def __init__(self, embeddings: Any = None) -> None:
         """Initialize embeddings and the vector store backend."""
-        self.embeddings = HuggingFaceEmbeddings(model_name=Config.EMBEDDING_MODEL)
+        if embeddings is not None:
+            self.embeddings = embeddings
+        else:
+            self.embeddings = HuggingFaceEmbeddings(model_name=Config.EMBEDDING_MODEL)
         
         self.use_pinecone = Config.is_pinecone_configured()
         self.store = None

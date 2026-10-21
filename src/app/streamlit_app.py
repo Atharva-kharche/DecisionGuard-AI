@@ -161,11 +161,17 @@ def get_nebius_client() -> NebiusClient:
     return NebiusClient()
 
 @st.cache_resource
-def get_rag_engine() -> RAGEngine:
-    return RAGEngine()
+def get_shared_embeddings():
+    from langchain_huggingface import HuggingFaceEmbeddings
+    return HuggingFaceEmbeddings(model_name=Config.EMBEDDING_MODEL)
 
 client = get_nebius_client()
-rag = get_rag_engine()
+
+# Ensure each browser session has an isolated RAG Engine & document store
+if "rag_engine" not in st.session_state:
+    st.session_state.rag_engine = RAGEngine(embeddings=get_shared_embeddings())
+rag = st.session_state.rag_engine
+
 decision_engine = DecisionEngine(client)
 
 if "active_view" not in st.session_state:
@@ -310,7 +316,7 @@ elif view == "New Review":
         
         colA, colB = st.columns([3, 1])
         with colA:
-            st.info("Supported formats: PDF, DOCX, TXT, MD. Max limit: 200MB per file.")
+            st.info("Supported formats: PDF, DOCX, TXT, MD. Max limit: 10MB per file.")
             uploaded_files = st.file_uploader("Upload Evidence", accept_multiple_files=True, label_visibility="collapsed")
             
             # Sync uploaded files with RAG engine
@@ -321,9 +327,15 @@ elif view == "New Review":
                 # If a file was removed or it's a completely new set, we clear and re-ingest active ones
                 if set(active_names) != set(current_docs):
                     rag.clear()
+                    MAX_FILE_BYTES = 10 * 1024 * 1024 # 10 MB limit per file
                     for f in uploaded_files:
-                        f.seek(0)
-                        rag.ingest_bytes(f.read(), f.name)
+                        content_bytes = f.read()
+                        if len(content_bytes) > MAX_FILE_BYTES:
+                            st.warning(f"⚠️ '{f.name}' exceeds the 10MB limit and was skipped.")
+                            continue
+                        success, msg = rag.ingest_bytes(content_bytes, f.name)
+                        if not success:
+                            st.warning(f"⚠️ {msg}")
         with colB:
             if st.button("Clear All Uploads", use_container_width=True):
                 rag.clear()
@@ -396,9 +408,12 @@ elif view == "New Review":
                 results = decision_engine.run_review(rag.get_all_chunks(), st.session_state.decision_question)
                 st.session_state.review_results = results
                 
-                # Save to persistent storage
-                review_id = str(uuid.uuid4())
-                save_review(review_id, st.session_state.decision_question, results)
+                # Save to persistent storage safely without blocking the review
+                try:
+                    review_id = str(uuid.uuid4())
+                    save_review(review_id, st.session_state.decision_question, results)
+                except Exception as save_err:
+                    print(f"Warning: Could not save review to database: {save_err}")
                 
                 st.success("✓ Analysis Complete!")
                 st.session_state.review_step = 4
@@ -467,14 +482,17 @@ elif view == "Results":
                 st.markdown("The score is deterministically generated based on exact findings. Base scale: Critical (+25), High (+15), Medium (+5), Low (+1). Capped at 100.")
             
             # PDF Report Export
-            pdf_bytes = generate_pdf_report(res.get('decision', st.session_state.decision_question), res)
-            st.download_button(
-                label="📄 Download PDF Report",
-                data=pdf_bytes,
-                file_name="DecisionGuard_Report.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+            try:
+                pdf_bytes = generate_pdf_report(res.get('decision', st.session_state.decision_question), res)
+                st.download_button(
+                    label="📄 Download PDF Report",
+                    data=pdf_bytes,
+                    file_name="DecisionGuard_Report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except Exception:
+                st.caption("⚠️ PDF report generation temporarily unavailable.")
 
         st.markdown("### Interactive Findings")
         
@@ -572,21 +590,25 @@ elif view == "Results":
                 st.warning("Please enter a question.")
             else:
                 with st.spinner("Querying Nemotron..."):
-                    retrieved = rag.retrieve(query, top_k=3)
-                    context_text = ""
-                    for item in retrieved:
-                        context_text += f"Document: {item['metadata'].get('source')} \n{item['content']}\n\n"
-                    
-                    injected = CONTEXT_INJECTION_TEMPLATE.format(context=context_text)
-                    ans = client.chat([
-                        {"role": "system", "content": DECISIONGUARD_SYSTEM_PROMPT},
-                        {"role": "user", "content": injected + f"\n\nQuestion: {query}"}
-                    ])
-                    st.markdown("#### Answer")
-                    st.info(ans)
-                    st.markdown("**Sources:**")
-                    for item in retrieved:
-                        st.caption(f"📄 {item['metadata'].get('source')}")
+                    try:
+                        retrieved = rag.retrieve(query, top_k=3)
+                        context_text = ""
+                        for item in retrieved:
+                            context_text += f"Document: {item['metadata'].get('source')} \n{item['content']}\n\n"
+                        
+                        injected = CONTEXT_INJECTION_TEMPLATE.format(context=context_text)
+                        ans = client.chat([
+                            {"role": "system", "content": DECISIONGUARD_SYSTEM_PROMPT},
+                            {"role": "user", "content": injected + f"\n\nQuestion: {query}"}
+                        ])
+                        st.markdown("#### Answer")
+                        st.info(ans)
+                        if retrieved:
+                            st.markdown("**Sources:**")
+                            for item in retrieved:
+                                st.caption(f"📄 {item['metadata'].get('source')}")
+                    except Exception as e:
+                        st.error(f"Could not retrieve answer: {e}")
 
 elif view == "Reviews":
     st.markdown("<h1>Historical Reviews</h1>", unsafe_allow_html=True)

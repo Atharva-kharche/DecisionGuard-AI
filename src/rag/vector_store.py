@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import List, Dict, Any
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_pinecone import PineconeVectorStore
 from langchain_community.vectorstores import FAISS
 from utils.config import Config
 
@@ -30,8 +29,13 @@ class DocumentStore:
         """Lazy initialization of the vector store."""
         if self.use_pinecone:
             if self.store is None:
-                import pinecone
-                # Setup is handled by PineconeVectorStore implicitly if PINECONE_API_KEY is set
+                try:
+                    from langchain_pinecone import PineconeVectorStore
+                except ImportError as exc:
+                    raise ImportError(
+                        "Pinecone is configured but 'langchain-pinecone' is not installed. "
+                        "Please install 'pinecone' and 'langchain-pinecone' to use Pinecone."
+                    ) from exc
                 self.store = PineconeVectorStore(
                     index_name=Config.PINECONE_INDEX_NAME, 
                     embedding=self.embeddings
